@@ -7,9 +7,9 @@ import PIL
 import numpy as np
 import json
 
-def building_and_training(arch,hidden_units,epochs,learning_rate,train_loader,valid_loader,device):
+def building(arch,hidden_units,learning_rate,device):
     device = torch.device("cuda:0" if torch.cuda.is_available() and device=='gpu' else "cpu")
-    model=arch(pretrained=True)
+    model=models.__dict__[arch](pretrained=True)
     for para in model.parameters():
         para.requires_grad=False
     classifier=nn.Sequential(nn.Linear(2048, hidden_units),
@@ -24,6 +24,9 @@ def building_and_training(arch,hidden_units,epochs,learning_rate,train_loader,va
     criterion=nn.NLLLoss()
     optimizer=optim.Adam(model.fc.parameters(), lr=learning_rate)
     model.to(device)
+    return model,classifier,criterion,optimizer
+def training(model,epochs,criterion,optimizer,train_loader,valid_loader,device):
+    device = torch.device("cuda:0" if torch.cuda.is_available() and device=='gpu' else "cpu")
     #actual training
     epochs = epochs
     steps = 0
@@ -73,7 +76,8 @@ def building_and_training(arch,hidden_units,epochs,learning_rate,train_loader,va
     model.to('cpu')
 
 # TODO: Do validation on the test set
-def testing_model(model,test_loader):
+def testing_model(model,test_loader,criterion,device):
+    device = torch.device("cuda:0" if torch.cuda.is_available() and device=='gpu' else "cpu")
     test_loss = 0
     accuracy_sum = 0
     model.eval()
@@ -95,19 +99,13 @@ def testing_model(model,test_loader):
         print(f"Test accuracy: {accuracy_sum/len(test_loader):.3f}")
 
 # TODO: Save the checkpoint
-def save_checkpoint(model,train_dir,save_dir):
+def save_checkpoint(model,criterion,optimizer,train_dir,save_dir):
     model.eval()
     model.class_to_idx = datasets.ImageFolder(train_dir).class_to_idx
     checkpoint = {'input_size': 2048,
                   'output_size': 102,
+                  'criterion':criterion,
+                  'optimizer_state_dict': optimizer.state_dict(),
                   'state_dict': model.state_dict()}
-    checkpoint.to('cpu')
+#     checkpoint.to('cpu')
     torch.save(checkpoint, save_dir+'/checkpoint.pth')
-
-def load_checkpoint(save_dir):
-    checkpoint=torch.load(filepath)
-    model = fc_model.Network(checkpoint['input_size'],
-                             checkpoint['output_size'])
-    model.load_state_dict(checkpoint['state_dict'])
-
-    return model
