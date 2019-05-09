@@ -8,11 +8,14 @@ import PIL
 import json
 import fc_model
 
-def load_checkpoint(path,map_location,hidden_units,learning_rate):
-    model=models.resnet50()
+def load_checkpoint(arch,path,map_location,hidden_units,learning_rate):
+    checkpoint=torch.load(path+'/checkpoint.pth',map_location=lambda storage, loc: storage)
+    arch=checkpoint.get('arch')
+    model=models.__dict__[arch](pretrained=True)
+    input_units=model.fc.in_features
     for para in model.parameters():
         para.requires_grad=False
-    classifier=nn.Sequential(nn.Linear(2048, hidden_units,learning_rate),
+    classifier=nn.Sequential(nn.Linear(input_units, hidden_units),
                              nn.ReLU(),
                              nn.Dropout(0.2),
                              nn.Linear(hidden_units, 256),
@@ -21,16 +24,13 @@ def load_checkpoint(path,map_location,hidden_units,learning_rate):
                              nn.Linear(256,102),
                              nn.LogSoftmax(dim=1))
     model.fc=classifier
-    optimizer=optim.Adam(model.fc.parameters(), lr=learning_rate)
-    checkpoint=torch.load(path+'/checkpoint.pth',map_location=lambda storage, loc: storage)
     model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     model.eval()
     return model
 
 def process_image(path_to_image):
     im=PIL.Image.open(path_to_image)
-    im.thumbnail((256,256))
+    im.thumbnail((224,224))
     np_image=np.array(im)
 
     np_image=np_image/255.0
